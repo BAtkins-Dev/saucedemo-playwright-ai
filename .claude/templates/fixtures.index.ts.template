@@ -1,0 +1,33 @@
+/**
+ * Shared test fixtures, at tests/fixtures/index.ts. One fixture per page object,
+ * INSTANTIATE-ONLY: each hands the spec a freshly constructed page-object instance and
+ * nothing more — it does NOT navigate. The spec calls `.open()` itself (in beforeEach
+ * or the test), so navigation stays visible at test-case altitude (see
+ * test-structure.md).
+ *
+ * Fixtures are lazy: only the page(s) a test destructures are constructed, so nothing
+ * is set up unless that test uses it. Import `test`/`expect` from here instead of from
+ * '@playwright/test'. Add one block per page object as the suite grows — including
+ * pages reached mid-flow (e.g. dashboardPage below, which the seed reaches via
+ * loginPage.signIn() rather than loginPage itself exposing it).
+ */
+import { test as base, expect } from '@playwright/test';
+import { LoginPage } from '../pages/login.page';
+import { DashboardPage } from '../pages/dashboard.page';
+
+type Fixtures = {
+  loginPage: LoginPage;
+  dashboardPage: DashboardPage;
+};
+
+export const test = base.extend<Fixtures>({
+  loginPage: async ({ page }, use) => {
+    // Construction only — no .open() here; the spec navigates.
+    await use(new LoginPage(page));
+  },
+  dashboardPage: async ({ page }, use) => {
+    await use(new DashboardPage(page));
+  },
+});
+
+export { expect };

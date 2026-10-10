@@ -1,0 +1,19 @@
+{
+  // The browser MCP comes from `npx playwright init-agents` (the playwright-test
+  // server) — don't add one here. This file is only the OPTIONAL issue-tracker MCP.
+  "mcpServers": {
+    // To enable a tracker so plan-tests can pull tickets by key: copy .env.example to
+    // .env, fill in your credentials, then uncomment the block below. Jira is shown;
+    // Linear / GitHub Issues / others use their own server in the same shape.
+    //
+    // "jira": {
+    //   "command": "npx",
+    //   "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/sse"],
+    //   "env": {
+    //     "JIRA_URL": "${JIRA_URL}",
+    //     "JIRA_EMAIL": "${JIRA_EMAIL}",
+    //     "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
+    //   }
+    // }
+  }
+}

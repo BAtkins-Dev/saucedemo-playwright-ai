@@ -1,0 +1,18 @@
+# --- Playwright AI Kit ---
+
+# Secrets — never commit
+.env
+
+# Personal Claude Code settings (per-developer, not shared)
+.claude/settings.local.json
+
+# Dependencies
+node_modules/
+
+# Playwright artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Saved auth state used by fixtures (see .claude/conventions/test-structure.md)
+auth/

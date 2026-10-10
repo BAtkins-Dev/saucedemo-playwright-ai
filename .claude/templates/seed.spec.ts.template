@@ -1,0 +1,59 @@
+/**
+ * seed.spec.ts — the canonical style example, at tests/seed.spec.ts (the path the
+ * agents reference). Every generated spec imitates this file's imports, structure,
+ * locators, and assertions, so keep it real and keep it green.
+ *
+ * The validated readable shape (see .claude/conventions/):
+ *   - Thin page object PER PAGE (tests/pages/*.page.ts): named locators + intent
+ *     methods where the method name IS the step; NO assertions live there. This
+ *     includes pages reached mid-flow — the seed lands on a different page after
+ *     signIn(), so that page gets its own object (dashboard.page.ts), not fields
+ *     bolted onto LoginPage. — page-objects.md
+ *   - The fixture hands over a page-object INSTANCE only; navigation is NOT in the
+ *     fixture. `.open()` is called HERE, explicitly, in beforeEach or the test.
+ *     — test-structure.md
+ *   - The body reads action → verify at test-case altitude; every expect() stays in
+ *     the spec. — assertions.md
+ *   - test.step wraps high-level PHASES only — a label, not every line.
+ *   - Assertion targets are anchored on #id / role, not getByText. — assertions.md
+ *
+ * Replace the login specifics below with your app's representative flow, and adapt
+ * tests/pages/login.page.ts and tests/pages/dashboard.page.ts to match.
+ */
+import { test, expect } from './fixtures';
+
+// Use a seeded test account from a fixture or env — never a real production credential.
+const USER = { email: 'test.user@example.com', password: 'Password123!' };
+
+// .open() lives in the spec, not the fixture, so navigation stays visible here.
+test.beforeEach(async ({ loginPage }) => {
+  await loginPage.open();
+});
+
+test.describe('Login', () => {
+  test('logs in with valid credentials @smoke', async ({ loginPage, dashboardPage, page }) => {
+    await loginPage.signIn(USER.email, USER.password);
+
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(dashboardPage.heading).toBeVisible();
+  });
+
+  test('rejects an invalid password @regression', async ({ loginPage }) => {
+    await loginPage.signIn(USER.email, 'wrong-password');
+
+    // Anchored on the banner's #id, asserted against its (stable) copy.
+    await expect(loginPage.error).toHaveText('Your password is invalid!');
+  });
+
+  test('logs back out from the dashboard @regression', async ({ loginPage, dashboardPage }) => {
+    await test.step('Sign in', async () => {
+      await loginPage.signIn(USER.email, USER.password);
+      await expect(dashboardPage.logout).toBeVisible();
+    });
+
+    await test.step('Sign out', async () => {
+      await dashboardPage.signOut();
+      await expect(loginPage.submit).toBeVisible();
+    });
+  });
+});

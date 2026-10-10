@@ -1,0 +1,39 @@
+# Project
+
+Everything the agents and skills need about *your* project, they read from here.
+
+The fastest way to fill this in is the **`onboard`** skill — it asks a few questions
+and writes this file for you. You can also edit it by hand: replace the placeholders
+below. This is the one file that's truly project-specific.
+
+## App
+- **Base URL (local):** `http://localhost:3000`
+- **Base URL (staging):** `https://staging.example.com`
+- **Base URL (prod):** *(optional — usually you don't run E2E against prod)*
+- **Auth for tests:** <how a test logs in — a seeded test user, a saved
+  `storageState`, or env vars. The seed shows UI login; prefer a fixture in practice.>
+
+> `baseURL` must also be set in `playwright.config` so relative `page.goto('/path')`
+> calls (like the seed's) resolve. `onboard` sets this up for new projects.
+
+## Test command
+- **Run all:** `npx playwright test`
+- **Run one file:** `npx playwright test tests/<feature>.spec.ts`
+- **Run one browser:** `npx playwright test --project=chromium`
+- **Run a tag:** `npx playwright test --grep @smoke`
+- **Headed / UI mode:** `npx playwright test --ui`
+- **Open a failure trace:** `npx playwright show-trace`
+- **Record a flow / find locators:** `npx playwright codegen <url>`
+
+## Where things live
+- **Plans (human-readable):** `specs/`
+- **Tests:** `tests/`
+- **Fixtures / page objects:** `tests/fixtures/`, `tests/pages/`
+
+## Tickets
+- **Source:** <pick one — `paste` (no integration), or a tracker: Jira `PROJ`,
+  Linear, GitHub Issues, etc.>
+- **Tracker base URL:** `https://your-org.atlassian.net` *(only if wiring a tracker MCP)*
+
+> A tracker is optional. With `paste`, drop the acceptance criteria into the prompt and
+> `plan-tests` works the same way. To wire one, see `.env.example` and `.mcp.json`.

@@ -1,0 +1,42 @@
+import { type Page, type Locator } from '@playwright/test';
+
+/**
+ * LoginPage — thin page object for the seed's representative flow, at
+ * tests/pages/login.page.ts. It holds named locators and intent methods (the method
+ * name IS the step); NO assertions live here — the spec owns every expect().
+ *
+ * `.open()` navigates but is NOT auto-called: the fixture only constructs this object,
+ * and the spec calls `.open()` explicitly (see fixtures/index.ts + test-structure.md).
+ *
+ * Scoped to the login page only — elements that appear AFTER a successful login (a
+ * dashboard heading, a logout control) belong to that page's own page object
+ * (see tests/pages/dashboard.page.ts), not here. See page-objects.md's "one page
+ * object per page" rule, including pages reached mid-flow.
+ *
+ * Replace these specifics with your app's real login. One thin page object per page
+ * is the default for e2e specs — see page-objects.md.
+ */
+export class LoginPage {
+  readonly email: Locator;
+  readonly password: Locator;
+  readonly submit: Locator;
+  readonly error: Locator;
+
+  constructor(private readonly page: Page) {
+    this.email = page.getByLabel('Email');
+    this.password = page.getByLabel('Password');
+    this.submit = page.getByRole('button', { name: 'Sign in' });
+    // Error banner anchored on its stable #id, not its copy — see assertions.md.
+    this.error = page.locator('#error');
+  }
+
+  async open() {
+    await this.page.goto('/login');
+  }
+
+  async signIn(email: string, password: string) {
+    await this.email.fill(email);
+    await this.password.fill(password);
+    await this.submit.click();
+  }
+}

@@ -1,0 +1,34 @@
+import { type Page, type Locator } from '@playwright/test';
+
+/**
+ * DashboardPage — thin page object for the page a user lands on after a successful
+ * login, at tests/pages/dashboard.page.ts. Named locators + intent methods; NO
+ * assertions live here — the spec owns every expect().
+ *
+ * This is a SEPARATE page object from LoginPage on purpose: the login flow ends here,
+ * but this is a different page with its own elements (a heading, a logout control).
+ * Folding them into LoginPage is the mistake this file exists to prevent — see
+ * page-objects.md's "one page object per page" rule, including pages reached mid-flow.
+ *
+ * `.open()` is included for consistency with the page-object shape even though the
+ * seed reaches this page via LoginPage.signIn() rather than calling it directly — most
+ * apps still let you navigate here directly when already authenticated. Drop it if
+ * your app truly has no direct route (e.g. a one-time confirmation screen).
+ */
+export class DashboardPage {
+  readonly heading: Locator;
+  readonly logout: Locator;
+
+  constructor(private readonly page: Page) {
+    this.heading = page.getByRole('heading', { name: 'Dashboard' });
+    this.logout = page.getByRole('button', { name: 'Sign out' });
+  }
+
+  async open() {
+    await this.page.goto('/dashboard');
+  }
+
+  async signOut() {
+    await this.logout.click();
+  }
+}
