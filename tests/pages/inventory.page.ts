@@ -33,7 +33,10 @@ export class InventoryPage {
   }
 
   async open() {
-    await this.page.goto('/inventory.html');
+    // Not 'load': saucedemo answers deep links with a 404 and reloads the app, and a
+    // stalled product image or web font can hold 'load' past the test timeout. The
+    // spec's web-first assertions wait for the elements they actually need.
+    await this.page.goto('/inventory.html', { waitUntil: 'domcontentloaded' });
   }
 
   // Every product has the same "Add to cart" / "Remove" button, so scope to the product

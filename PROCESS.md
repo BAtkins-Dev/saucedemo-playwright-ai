@@ -218,3 +218,175 @@ items, open cart", and the cart badge locator is defined in both page objects.
   locator defined in two page objects) are unfixed by choice.
 - The plan's headings in `specs/cart.md` no longer match the spec's describe names.
 - The spec is a draft: it has not been through PR review, and there is no CI.
+
+## 2026-10-13 — Checkout
+
+Pages: https://www.saucedemo.com/cart.html through
+https://www.saucedemo.com/checkout-complete.html
+
+### What I asked
+1. **plan-tests** (pasted criteria): checkout tests that start signed in from
+   `STANDARD_USER_STATE`, add items to the cart as a simple setup step, and focus only on
+   the checkout process. Happy paths end at the order confirmation. No validation of the
+   personal information fields. Checking out with an empty cart is a known saucedemo
+   flaw: include it as `test.fail` with a short explanation.
+2. **Plan decisions:** the empty-cart test asserts that the Checkout button is disabled.
+   This is my assumption; I don't know the actual requirement. Add tests for the Continue
+   and Cancel buttons.
+3. **generate-tests:** automate the plan.
+4. **Diagnose** the flaky failures from the first runs, then **apply the `open()` fix**
+   that came out of it.
+5. **Turn on one local retry**, and log the investigation here.
+6. **convention-check** on `tests/checkout.spec.ts`, then apply two findings: add a
+   comment to the empty-cart test about what `test.fail` can't detect, and replace the
+   repeated setup with a helper. Re-run and log.
+
+### What was found
+
+**About the pages (from live exploration; the criteria set scope but not the screens)**
+- Checkout is three pages: "Checkout: Your Information" (`/checkout-step-one.html`) with
+  First Name, Last Name and Zip/Postal Code; "Checkout: Overview"
+  (`/checkout-step-two.html`) with the items, payment and shipping text, and price
+  totals; "Checkout: Complete!" (`/checkout-complete.html`) with the heading "Thank you
+  for your order!".
+- Backpack + Bike Light: item total $39.98, tax $3.20, total $43.18.
+- Cancel on the information page returns to the cart with items kept. Cancel on the
+  overview returns to the inventory page, items still in the cart.
+- **Empty cart flaw confirmed:** Checkout is enabled on an empty cart, and a $0 order
+  goes all the way to "Thank you for your order!".
+- Moving from the cart to checkout is an in-page route change, not a page load.
+
+**About the flaky runs (investigation)**
+
+Three kinds of intermittent failure showed up. None is specific to the new spec.
+
+1. *Load timeouts.* Opening a page directly (`open()`) sometimes timed out after 30
+   seconds in `beforeEach`, mostly on Firefox, once in the pre-existing `cart.spec.ts`.
+   A trace showed why: saucedemo answers `/inventory.html` with a **404** and redirects
+   to `/?/inventory.html`, so every `open()` reloads the whole app. `page.goto` waited
+   for the full load event, which needs six product images and four web-font files, and
+   several of those requests never finished.
+2. *Actions stalling, Firefox.* A fill or click on the checkout information page waited
+   the full 30 seconds; in one trace two fields filled normally and the third hung. Five
+   images and four font requests from the inventory page were still pending at the time.
+   The site also loads scripts from random-looking paths, which look like bot
+   protection.
+3. *Lost First Name, WebKit.* Twice in the first full run, and once in the first stress
+   run, WebKit left First Name empty after the test had filled it, so Continue showed
+   "First Name is required". It did not happen again in any later run.
+
+What was ruled out or tested:
+- **Form rebuilt after it appears (lost First Name):** ruled out in Chromium. The form
+  is created once on the route change, and a filled value still holds 1.5 seconds
+  later. Not checked in WebKit itself.
+- **Too many workers on WebKit:** WebKit alone with 10 workers passed every time (33 of
+  33 with the affected tests repeated 8 times).
+- **Images and fonts as the cause of the Firefox stalls:** not supported. Blocking them
+  first gave three clean runs, but when blocked and unblocked runs were alternated, a
+  blocked run failed once and both unblocked runs passed.
+- **Variance:** the identical Firefox-only run (checkout spec repeated 4 times, 21
+  tests) failed 9, then 1, then 0 and 0. Failures were also worse after bursts of
+  repeated runs.
+
+Working theory, **unconfirmed**: the public site sometimes slows or holds our requests
+(possibly throttling), and Firefox occasionally freezes on a page when that happens. No
+fix for that was found.
+
+**About the generated spec (from convention-check)**
+
+No must-fix findings. Two should-fix findings:
+1. The empty-cart `test.fail` is green on *any* failure, so it can't tell "the flaw is
+   still there" from "the test is broken" (for example, a renamed Checkout button).
+2. Add item, open cart, click Checkout was copied into five tests.
+
+Four nits, left alone:
+3. The information form's inputs have `aria-label`s, so `getByLabel` would rank above
+   the `getByPlaceholder` locators used, and the page object's comment saying the inputs
+   have no label is misleading. `getByLabel` was not checked live.
+4. The Continue test overlaps step 1 of the several-items test. Kept because the plan
+   asks for it.
+5. The three checkout page objects' `open()` methods are unused, and opening those pages
+   by URL was never explored.
+6. The empty-cart test waits the full 5-second timeout on each browser before failing
+   as expected.
+
+### What was produced and fixed
+- `specs/checkout.md` — plan with six scenarios. Completing an order: single item
+  (`@smoke`); several items, with the overview's items and totals (`@regression`).
+  Continue and Cancel: continues to the overview; cancels from the information page
+  back to the cart; cancels from the overview back to the inventory page (all
+  `@regression`). Empty cart: Checkout disabled (`@regression`, `test.fail`).
+- `tests/checkout.spec.ts` — one test per scenario, starting signed in via
+  `test.use({ storageState: STANDARD_USER_STATE })`. The empty-cart test is
+  `test.fail` with a comment: it is a known saucedemo flaw, the disabled button is an
+  assumed intent, and the annotation comes off if the site is fixed.
+- New page objects `tests/pages/checkout-information.page.ts`,
+  `checkout-overview.page.ts` and `checkout-complete.page.ts`, each with a fixture in
+  `tests/fixtures/index.ts`.
+- `tests/pages/cart.page.ts` — added the Checkout button and a `checkout()` action;
+  its header comment no longer says Checkout is out of scope.
+- **`open()` fix:** all six page objects (login, inventory, cart and the three checkout
+  pages) now call `goto(..., { waitUntil: 'domcontentloaded' })` and do not wait for
+  images and fonts. The tests' own assertions wait for the elements they need.
+- `playwright.config.ts` — **one local retry** (`retries: process.env.CI ? 2 : 1`). A
+  test that passes on retry is reported as flaky, so the problem stays visible.
+- Review fix 1: the empty-cart test's comment now says `test.fail` is green on any
+  failure, so a reviewer should check the report shows the failure on `toBeDisabled`, not
+  on an earlier line.
+- Review fix 2: a `startCheckout(inventoryPage, cartPage, ...items)` helper in
+  `tests/checkout.spec.ts` adds the items, opens the cart and clicks Checkout. All five
+  tests with items use it; the empty-cart test does not. `tests/cart.spec.ts` was not
+  changed.
+
+### Verification
+- Playwright version check: installed 1.64.0 matches `.claude/agents-playwright-version`.
+- Every locator in the new page objects, and every assertion target, was checked
+  against the live site in one walk through the flow and resolved to exactly one
+  element. The overview's prices and totals matched the plan.
+- The spec was written directly with the playwright-test MCP, not through the generator
+  agent.
+- First run (cart + checkout, three browsers): 35 passed, 2 failed — the WebKit lost
+  First Name.
+- Three normal runs (cart + checkout): 37 passed; 36 passed and 1 Firefox load timeout;
+  37 passed.
+- After the `open()` fix, three full-suite runs: 2 failed, 4 failed, then 61 passed. A
+  further run failed 3 tests, all Firefox stalls on the information page. **The `open()`
+  fix did not remove the flakiness**, and the variance is too large to say whether it
+  reduced it. It is kept because tests should not depend on images and fonts they never
+  use.
+- After the retry change, one full-suite run: 61 passed, 6 skipped, with no retries
+  needed.
+- After review fixes 1 and 2, one full-suite run: 60 passed, 1 flaky, 6 skipped. Every
+  checkout test passed on its first attempt. The flaky test was the pre-existing cart
+  test "empties the cart when the last item is removed" on Firefox: after Remove, the
+  cart still listed 1 item. It passed on the retry. This looks like the same Firefox
+  pattern, an action that doesn't take effect, now seen on the cart page too.
+- No type-check was run separately (`tsc` is not installed); Playwright compiled the
+  spec when it ran.
+- A later full-suite run by the user, after the review fixes: 61 passed, 6 skipped in
+  54.4 seconds. No flaky or failed tests were reported, so the local retry was not needed.
+- The empty-cart `test.fail` fails as expected on all three browsers and counts as
+  passed.
+- The six skipped tests are the seed's two intentionally skipped tests on each browser.
+
+### Still open
+- **The Firefox stalls and the WebKit lost First Name are not explained.** The local
+  retry hides single failures, so check reports for tests marked flaky. Next steps if
+  they keep appearing: run fewer workers (10 now, half of 20 cores) and compare over
+  spaced-out runs; or capture a Firefox trace of a stall that includes the page's own
+  scripts.
+- The empty-cart expected outcome (disabled Checkout button) is an assumption; the real
+  requirement is unknown.
+- The Cancel destinations, totals and confirmation copy are what the site does today;
+  there is no spec to confirm them. Tax is not asserted as a rule.
+- Convention-check nits 3–6 are unfixed: label vs placeholder locators on the
+  information form, the overlapping Continue test, the unused `open()` methods, and the
+  empty-cart test's 5-second wait.
+- `tests/cart.spec.ts` still repeats its own "add items, open cart" setup; the helper
+  was applied to the checkout spec only.
+- Out of scope by decision: information-page field validation, including Continue with
+  blank fields.
+- Not explored: leaving checkout part-way and returning, reloading mid-flow, opening
+  checkout pages by URL, "Generate PDF order", and the other published accounts.
+- `convention-check` ran once, before review fixes 1 and 2, and has not been re-run.
+- The spec is a draft: it has not been through PR review, and there is no CI.

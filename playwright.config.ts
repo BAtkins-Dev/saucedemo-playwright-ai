@@ -4,7 +4,9 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // One local retry: runs against the live public site flake intermittently, mostly on
+  // Firefox (see PROCESS.md, 2026-10-13 — Checkout). A retried pass is reported as flaky.
+  retries: process.env.CI ? 2 : 1,
   use: {
     baseURL: 'https://www.saucedemo.com',
     trace: 'on-first-retry',

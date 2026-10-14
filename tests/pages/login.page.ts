@@ -29,7 +29,9 @@ export class LoginPage {
   }
 
   async open() {
-    await this.page.goto('/');
+    // Not 'load': a stalled web font can hold 'load' past the test timeout, and the
+    // spec's web-first assertions wait for the elements they actually need.
+    await this.page.goto('/', { waitUntil: 'domcontentloaded' });
   }
 
   async signIn(username: string, password: string) {
