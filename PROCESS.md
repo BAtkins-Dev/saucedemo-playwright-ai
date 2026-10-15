@@ -390,3 +390,44 @@ Four nits, left alone:
   checkout pages by URL, "Generate PDF order", and the other published accounts.
 - `convention-check` ran once, before review fixes 1 and 2, and has not been re-run.
 - The spec is a draft: it has not been through PR review, and there is no CI.
+
+## 2026-10-14 — Sorting: full-suite regression run
+
+After adding `tests/sorting.spec.ts` and the sorting additions to `InventoryPage` (sort
+dropdown, visible sort label, name and price lists, `sortBy()`; nothing existing changed),
+one full-suite run on all three browsers to check the existing tests.
+
+- **Result:** 70 passed, 6 skipped, 6 flaky, 0 failed (about 1.5 minutes). The skipped
+  tests are the seed's two intentionally skipped tests on each browser.
+- **All six flaky tests were on Firefox**, and each passed on the retry. Every first
+  attempt was a 30-second timeout in code the sorting change did not touch:
+  - cart "counts each added item", "removes an item from the inventory page", "empties
+    the cart", and checkout "completes an order for a single item": stalled while
+    loading the inventory page (stuck on `/?/inventory.html`) or clicking "Add to cart".
+  - checkout "continues to the overview": the "Continue" click never finished.
+  - checkout "disables Checkout for an empty cart" (`test.fail`): timed out in
+    `beforeEach`. On the retry it failed on `toBeDisabled`, as intended.
+- The 15 new sorting tests all passed on the first attempt.
+- **Conclusion:** no regression from the sorting change. Six flaky tests is more than the
+  previous recorded full-suite runs (1 flaky, then none). The suite now runs 15 more tests in parallel against the
+  live site, which may add load. One run can't tell that apart from a slow site, so it is
+  not confirmed.
+- **Still open:** run Firefox on its own a few times and compare flaky counts; see the
+  Checkout entry's "Still open" for the existing Firefox stall notes.
+
+## 2026-10-14 — Sorting: convention check
+
+`convention-check` on `tests/sorting.spec.ts` and the sorting additions to
+`InventoryPage`.
+
+- **Result:** clean. Nothing must be fixed and nothing should be fixed.
+- **Three style suggestions, skipped by decision:**
+  - The label checks match the option wording exactly (`toHaveText('Name (Z to A)')`).
+    Defensible because they are fixed option names. If the wording changes, loosen the
+    match or check the dropdown's value (`toHaveValue('za')`).
+  - The data-driven test picks the name or price list with a ternary. It could take the
+    list from each table row instead.
+  - `as const` on the table forces the `[...expected]` copy. It could be dropped and the
+    rows typed instead.
+- The spec was not edited. A convention check is a heuristic audit, not a test pass; the
+  spec is still a draft awaiting PR review, and there is no CI.

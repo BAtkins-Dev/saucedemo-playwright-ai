@@ -23,7 +23,7 @@ import { CheckoutCompletePage } from '../pages/checkout-complete.page';
  * Saved login state for standard_user, recorded by tests/auth.setup.ts at the start of
  * every run (saucedemo's session cookie only lasts 10 minutes). A spec that should start
  * signed in opts in with `test.use({ storageState: STANDARD_USER_STATE })`; it is not
- * applied globally because the login tests must start signed out.
+ * applied globally because the login tests must start signed out. 
  */
 export const STANDARD_USER_STATE = 'auth/standard-user.json';
 

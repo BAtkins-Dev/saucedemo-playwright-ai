@@ -20,6 +20,10 @@ export class InventoryPage {
   readonly logout: Locator;
   readonly cartLink: Locator;
   readonly cartBadge: Locator;
+  readonly sortSelect: Locator;
+  readonly activeSort: Locator;
+  readonly itemNames: Locator;
+  readonly itemPrices: Locator;
 
   constructor(private readonly page: Page) {
     // The title is a plain <span> with no heading role, so it is anchored on data-test.
@@ -30,6 +34,12 @@ export class InventoryPage {
     this.cartLink = page.getByRole('button', { name: /^Cart,/ });
     // The badge is a bare number inside the cart link, with no role of its own.
     this.cartBadge = page.getByTestId('shopping-cart-badge');
+    this.sortSelect = page.getByRole('combobox', { name: 'Sort products' });
+    // The label a user sees is a separate <span> laid over the <select>, with no role.
+    this.activeSort = page.getByTestId('active-option');
+    // Every product's name and price, in display order. No list roles, so data-test.
+    this.itemNames = page.getByTestId('inventory-item-name');
+    this.itemPrices = page.getByTestId('inventory-item-price');
   }
 
   async open() {
@@ -61,6 +71,11 @@ export class InventoryPage {
 
   async removeFromCart(name: string) {
     await this.removeButton(name).click();
+  }
+
+  // Takes the option's visible label, e.g. 'Price (low to high)'.
+  async sortBy(label: string) {
+    await this.sortSelect.selectOption({ label });
   }
 
   async openCart() {
