@@ -431,3 +431,120 @@ one full-suite run on all three browsers to check the existing tests.
     rows typed instead.
 - The spec was not edited. A convention check is a heuristic audit, not a test pass; the
   spec is still a draft awaiting PR review, and there is no CI.
+
+## 2026-10-14 — Logout
+
+Pages: https://www.saucedemo.com/inventory.html and https://www.saucedemo.com/
+
+### What I asked
+1. **plan-tests:** plan tests for logging out. After logging out, the login page should
+   show.
+2. **generate-tests:** automate the plan, and skip the seed's existing logout test the
+   same way its other two tests are skipped.
+3. **Process log:** record the Firefox `/?/inventory.html` timeout recurring (separate
+   entry below), then this entry.
+
+### What was found
+
+**About the pages (one-line criterion, details from live exploration)**
+- Choosing "Logout" from the side menu lands on `/`. The login page shows the Username
+  and Password fields and the Login button, with no error banner.
+- After logging out, going straight to `/inventory.html` returns the user to `/`, and
+  the error banner reads "Epic sadface: You can only access '/inventory.html' when you
+  are logged in." So the session really ends, and it isn't just a page change.
+
+**About existing coverage**
+- `tests/seed.spec.ts` already had "logs back out from the inventory page", and
+  `specs/login.md` said logout was covered there. That test signs in through the form
+  and only checks that the Login button is visible.
+
+### What was produced and fixed
+- `specs/logout.md`: a plan with two scenarios. "Shows the login page after logging
+  out" (`@smoke`) and "ends the session, so a signed-in page is no longer reachable"
+  (`@regression`). Open questions: overlap with the seed; whether logging out could
+  break the shared saved session; logging out from other pages; Back after logout.
+- `tests/logout.spec.ts`: one test per scenario, starting signed in via
+  `test.use({ storageState: STANDARD_USER_STATE })`. It uses the existing
+  `InventoryPage.signOut()` and `LoginPage` locators. No new page objects or fixtures.
+  The error-banner check matches the stable core of the message, not its full text.
+- `tests/seed.spec.ts`: "logs back out from the inventory page" is now `test.skip`, with
+  the same comment as the other two. **All three seed tests are now skipped.** The file
+  stays as the style example; do not delete or un-skip them.
+- `specs/login.md`: two notes that said the seed's logout test still runs and covers
+  logout now point to `specs/logout.md`.
+
+### Verification
+- Playwright version check: installed 1.64.0 matches `.claude/agents-playwright-version`.
+- Every locator was already in the page objects. The login form and the error banner
+  were seen live during planning, and the menu and Logout button were used when the
+  seed's logout test ran during planner setup.
+- The spec was written directly, not through the generator agent.
+- `tests/logout.spec.ts` with the seed, three browsers: 7 passed (setup plus 6 logout),
+  9 skipped (the seed's three tests on each browser).
+- First full-suite run: 77 passed, 2 flaky, 9 skipped. Both flaky tests were on Firefox
+  (the logout "ends the session" test and checkout "continues to the overview") and
+  passed on retry. Logging out did not break the shared saved session for tests running
+  in parallel, which answers that open question in the plan.
+- A second full-suite run: all six logout tests passed on the first attempt. Other
+  Firefox tests failed in that run; its totals were not captured.
+- Firefox repeat runs of the logout spec found intermittent timeouts. See the next
+  entry.
+
+### Still open
+- The expected URL and error text are what the site does today. The only written
+  requirement is the one-line criterion.
+- Firefox timeouts, mostly in `InventoryPage.open()` (next entry). Not fixed, because
+  that page object is shared by every signed-in spec.
+- Not planned, by choice: logging out from pages other than the inventory page (the
+  menu is the same everywhere), browser Back after logout, and the other menu items.
+- `convention-check` has not been run on `tests/logout.spec.ts`.
+- The spec is a draft: nothing is committed, it has not been through PR review, and
+  there is no CI.
+
+## 2026-10-14 — Firefox `/?/inventory.html` timeout recurs (sorting and logout rounds)
+
+The Firefox timeout in `InventoryPage.open()` came back in both the sorting and logout
+rounds, with the same symptom: the page lands on `/?/inventory.html` (saucedemo's 404
+redirect for direct links) and the first action on the inventory page waits the full 30
+seconds. The failure rate is about the same as in earlier rounds. Earlier runs varied too
+much (0 to 9 failures in 21 tests) to compare more precisely.
+
+- **Sorting round:** the full-suite regression run had 6 flaky tests, all on Firefox,
+  stuck on `/?/inventory.html` or on the first click after it (see the Sorting
+  regression entry above). A later Firefox-only run of `cart.spec.ts` and
+  `sorting.spec.ts`, repeated 4 times with no retries: 6 of 45 failed. Five of the six
+  call logs show the navigation to `/?/inventory.html`, followed by a wait for
+  "Add to cart" or for the sort label.
+- **Logout round:** `tests/logout.spec.ts` on Firefox, repeated, about 50 tests in all:
+  4 failures. Two show the navigation to `/?/inventory.html`, then a wait for the
+  "Open Menu" button. One opened the menu but never found the "Logout" button. One had
+  no call log captured. One full-suite run also had the logout test pass only on retry.
+  Chromium and WebKit did not fail.
+- **Not changed:** `InventoryPage.open()` is shared by every signed-in spec, so changing
+  it is a separate decision. See the Checkout entry's "Still open" for earlier
+  investigation and next steps.
+
+## 2026-10-14 — Logout: convention check
+
+`convention-check` on `tests/logout.spec.ts`.
+
+- **Result:** clean. Nothing must be fixed and nothing should be fixed.
+- **Three style suggestions:**
+  1. The "no error banner" check after logout (`expect(loginPage.error).toBeHidden()`)
+     is also true before logout, because the inventory page has no banner. It still
+     guards against logout landing on the login page with an error. **Applied:** a
+     comment above the check says this.
+  2. The second test calls `inventoryPage.open()` while signed out, although the page
+     object's comment says `open()` only works when signed in. The call is deliberate.
+     **Applied:** a comment says the test visits a signed-in page while signed out on
+     purpose.
+  3. The first test checks the Username field, Password field and Login button, which
+     all prove the same thing. Trimming to the Login button would match the seed.
+     **Skipped by decision**; the plan asks for all three.
+- **Run after the fixes:** `tests/logout.spec.ts` on all three browsers: 7 passed
+  (setup plus both tests on Chromium, Firefox and WebKit), no retries needed. Only
+  comments changed, so the tests behave as before.
+- The Firefox `InventoryPage.open()` timeouts (previous entry) are outside the
+  conventions and were not part of the check.
+- Nothing is committed. A convention check is a heuristic audit, not a test pass; the
+  spec is still a draft awaiting PR review, and there is no CI.

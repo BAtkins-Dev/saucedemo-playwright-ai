@@ -44,7 +44,8 @@ test.describe('Seed', () => {
     await expect(loginPage.error).toContainText(/username and password do not match/i);
   });
 
-  test('logs back out from the inventory page @regression', async ({ loginPage, inventoryPage }) => {
+  // Skipped: covered by tests/logout.spec.ts (specs/logout.md). Kept as the style example.
+  test.skip('logs back out from the inventory page @regression', async ({ loginPage, inventoryPage }) => {
     await test.step('Sign in', async () => {
       await loginPage.signIn(USER.username, USER.password);
       await expect(inventoryPage.menu).toBeVisible();

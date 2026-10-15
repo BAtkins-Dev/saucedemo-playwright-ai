@@ -63,7 +63,7 @@ Notes for the generator:
 - **Overlap with the seed.** `tests/seed.spec.ts` has "logs in with valid credentials"
   and "rejects an invalid password". Decided 2026-10-09: the seed file stays as the style
   exemplar, with those two tests marked `test.skip`; `tests/login.spec.ts` owns that
-  coverage. The seed's logout test still runs.
+  coverage. The seed's logout test is skipped too; `tests/logout.spec.ts` owns it.
 - **Other published accounts** (`problem_user`, `performance_glitch_user`, `error_user`,
   `visual_user`) — not explored and deliberately not planned (decided 2026-10-09: one
   positive scenario is enough).
@@ -72,7 +72,7 @@ Notes for the generator:
 - **Direct access to `/inventory.html` while logged out** — not explored (the exploration
   session was already authenticated). It is access control rather than the login form, so
   left out; worth its own scenario if you want the login gate proven.
-- **Logout** — covered by the seed, out of scope here.
+- **Logout** — covered by `specs/logout.md`, out of scope here.
 - Observed incidentals, deliberately not scenarios:
   - Pressing Enter in either field submits the form, same as clicking Login.
   - The error banner has a "Dismiss error" button — not exercised.
