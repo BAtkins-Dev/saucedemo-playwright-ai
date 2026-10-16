@@ -17,6 +17,7 @@ export class CheckoutInformationPage {
   readonly postalCode: Locator;
   readonly continueButton: Locator;
   readonly cancelButton: Locator;
+  readonly error: Locator;
 
   constructor(private readonly page: Page) {
     // The title is a plain <span> with no heading role, so it is anchored on data-test.
@@ -27,6 +28,8 @@ export class CheckoutInformationPage {
     this.postalCode = page.getByPlaceholder('Zip/Postal Code');
     this.continueButton = page.getByRole('button', { name: 'Continue' });
     this.cancelButton = page.getByRole('button', { name: 'Cancel' });
+    // Error banner anchored on its role="alert", not its copy — see assertions.md.
+    this.error = page.getByRole('alert');
   }
 
   async open() {

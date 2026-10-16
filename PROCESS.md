@@ -548,3 +548,109 @@ much (0 to 9 failures in 21 tests) to compare more precisely.
   conventions and were not part of the check.
 - Nothing is committed. A convention check is a heuristic audit, not a test pass; the
   spec is still a draft awaiting PR review, and there is no CI.
+
+## 2026-10-15 — Customer checkout validation
+
+Page: https://www.saucedemo.com/checkout-step-one.html
+
+### What I asked
+1. **plan-tests** (pasted brief): data-driven tests, with data in
+   `checkoutValidation.json`, for the First Name, Last Name and Zip/Postal Code fields
+   on the checkout information page. Do not repeat login, adding to cart or checkout.
+   Stop after clicking Continue. Use fixtures to log in and arrive at the page. Name
+   the spec `customerCheckoutValidation.spec.ts`.
+2. **Plan decisions:**
+   - Follow the house rule for arriving at the page: the auth and page-object
+     fixtures, with `.open()` in the spec. Fixtures do not navigate.
+   - Mark whitespace-only input as a known failure.
+   - For the postal code, check only that the field has data, regardless of format.
+3. **generate-tests:** automate the plan.
+4. **convention-check** on the new spec, then log this round.
+
+### What was found
+
+**About the page (from live exploration; the brief set scope but not the rules)**
+- A signed-in user with an **empty cart** can open `/checkout-step-one.html` directly,
+  so the tests don't need to add items or go through the cart.
+- Valid values (Ada / Lovelace / 12345) go to `/checkout-step-two.html`, title
+  "Checkout: Overview".
+- Each blank field is rejected, the page stays on step one, and the error banner
+  (`role="alert"`) shows "Error: First Name is required", "Error: Last Name is
+  required" or "Error: Postal Code is required".
+- With several fields blank, the first one in form order wins.
+- On any rejection, all three inputs are marked as errors.
+- **Whitespace-only values are accepted:** three spaces in every field goes through to
+  the overview. This may be a defect.
+- **No postal-code format check:** `abc` and `1` are accepted.
+
+**About the planner**
+- `planner_setup_page` with the default seed failed with "seed test not found", because
+  all three tests in `tests/seed.spec.ts` are now skipped. Planning was started from
+  `tests/logout.spec.ts` instead, and the browser was signed in by hand for
+  exploration.
+
+**About the generated spec (from convention-check)**
+- Clean: nothing must be fixed and nothing should be fixed. Three style suggestions,
+  none applied:
+  1. The information page's inputs have `aria-label`s, so `getByLabel` would rank
+     above the `getByPlaceholder` locators used, and the page object's "no <label>"
+     comment is misleading. This is the same nit as in the Checkout entry, carried
+     over. `getByLabel` has not been checked live.
+  2. The `accepted` loop has one row today, so it adds nothing until a second row
+     arrives. No change suggested.
+  3. The camelCase file name differs from the other specs' lowercase names. It was
+     chosen in the brief, so it isn't a finding.
+
+### What was produced and fixed
+- `specs/customerCheckoutValidation.md`: the plan with five scenarios from the JSON.
+  One accepted: continues to the overview with all fields filled (`@smoke`). Four
+  rejected (`@regression`): requires a first name, requires a last name, requires a
+  postal code, and rejects whitespace-only values (known failure). It also records
+  the three decisions.
+- `tests/data/checkoutValidation.json`: the `accepted` and `rejected` lists. Each row
+  has `title`, `firstName`, `lastName` and `postalCode`. Rejected rows add an
+  expected `error`, and the whitespace row adds a `knownFailure` reason.
+- `tests/customerCheckoutValidation.spec.ts`: two loops over the JSON, one per list,
+  so each row runs as its own `test()`. It starts signed in via
+  `test.use({ storageState: STANDARD_USER_STATE })`, gets `checkoutInformationPage`
+  from the fixture, and calls `.open()` in `beforeEach`.
+  - Accepted rows check the overview URL and title.
+  - Rejected rows check the banner text without the "Error: " prefix, then that the
+    URL is still step one.
+  - Rows with `knownFailure` call `test.fail` with that reason, with a comment that
+    `test.fail` is green on any failure.
+- `tests/pages/checkout-information.page.ts`: added an `error` field for the error
+  banner. Nothing else in the page object changed.
+- **Known failure:** the whitespace row expects "First Name is required". Rejecting
+  whitespace is an *assumed* intent, not a stated requirement. Remove `knownFailure`
+  from the row if the site starts rejecting whitespace; until then the row reports
+  as unexpectedly passing.
+
+### Verification
+- Playwright version check: installed 1.64.0 matches `.claude/agents-playwright-version`.
+- All ten field combinations explored were submitted against the live form, and the
+  outcomes recorded.
+- The assertion targets were checked live before the spec was written:
+  - The error banner is the only `alert` on the page, and it appears only after
+    Continue.
+  - The overview title reads "Checkout: Overview".
+- The spec was written directly with the playwright-test MCP, not through the
+  generator agent.
+- `tests/customerCheckoutValidation.spec.ts` on all three browsers: 16 passed (setup
+  plus 15 tests). The whitespace row counts as passed because it failed as expected.
+  On Chromium, it failed on the banner check (line 42), not on an earlier line.
+- Full suite: 94 passed, 9 skipped in 57.5 seconds, with no flaky tests. The skipped
+  tests are the seed's three tests on each browser.
+- The convention check did not change the spec, so no re-run was needed.
+
+### Still open
+- The expected error messages and the step-two destination are what the site does
+  today; there is no spec to confirm them.
+- The whitespace known failure rests on an assumed intent.
+- Not planned, by decision: postal-code format; which error wins with several fields
+  blank; the error styling on every input; the banner's dismiss button.
+- `tests/seed.spec.ts` has no running test, so the planner can't use it as its seed.
+  Either un-skip one seed test or keep pointing the planner at another spec.
+- The convention-check nits are unfixed.
+- The spec is a draft: nothing is committed, it has not been through PR review, and
+  there is no CI.

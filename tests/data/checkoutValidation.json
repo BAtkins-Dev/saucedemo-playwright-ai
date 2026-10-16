@@ -1,0 +1,41 @@
+{
+  "accepted": [
+    {
+      "title": "continues to the overview with all fields filled @smoke",
+      "firstName": "Ada",
+      "lastName": "Lovelace",
+      "postalCode": "12345"
+    }
+  ],
+  "rejected": [
+    {
+      "title": "requires a first name @regression",
+      "firstName": "",
+      "lastName": "Lovelace",
+      "postalCode": "12345",
+      "error": "First Name is required"
+    },
+    {
+      "title": "requires a last name @regression",
+      "firstName": "Ada",
+      "lastName": "",
+      "postalCode": "12345",
+      "error": "Last Name is required"
+    },
+    {
+      "title": "requires a postal code @regression",
+      "firstName": "Ada",
+      "lastName": "Lovelace",
+      "postalCode": "",
+      "error": "Postal Code is required"
+    },
+    {
+      "title": "rejects whitespace-only values @regression",
+      "firstName": "   ",
+      "lastName": "   ",
+      "postalCode": "   ",
+      "error": "First Name is required",
+      "knownFailure": "saucedemo accepts whitespace-only values and continues to the overview. Rejecting them is an assumed intent, not a stated requirement."
+    }
+  ]
+}
