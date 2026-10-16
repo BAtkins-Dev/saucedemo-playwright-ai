@@ -654,3 +654,140 @@ Page: https://www.saucedemo.com/checkout-step-one.html
 - The convention-check nits are unfixed.
 - The spec is a draft: nothing is committed, it has not been through PR review, and
   there is no CI.
+
+## 2026-10-15 — Users API (reqres.in)
+
+Endpoint: https://reqres.in/api/users
+
+### What I asked
+1. **plan-tests:** API tests for `https://reqres.in/api/users` covering POST, GET, GET
+   404, PUT, PATCH and DELETE, checking the status code and response body. Name the
+   spec `users.spec.ts` and put it in `tests/api/`.
+2. **generate-tests:** automate the plan.
+3. Add a dedicated `api` project to `playwright.config.ts`: no browser (request only),
+   no `setup` dependency. Make the browser projects skip `tests/api/`.
+4. Add the API run command to `PROJECT.md`, and make `tests/api/` exempt from the
+   `storageState` rule.
+5. Do one last run of the API tests and log this round.
+
+### What was found
+
+**About the API (from live calls; there is no written contract)**
+- reqres is a public **mock** API, separate from saucedemo. Writes are echoed back but
+  not stored, so the tests can only prove the response contract, not that data
+  changed.
+- No API key is needed today: every call gave the same result with and without the
+  `x-api-key` header.
+- Observed responses:
+  - `GET /api/users/2`: 200, `data` is Janet Weaver (id 2) with an `avatar` URL.
+  - `GET /api/users/23`: 404, body `{}`.
+  - `POST /api/users`: 201, echoes `name` and `job`, adds a string `id` and `createdAt`.
+  - `PUT /api/users/2`: 200, echoes `name` and `job`, adds `updatedAt`.
+  - `PATCH /api/users/2`: 200, echoes only the sent `job`, adds `updatedAt`.
+  - `DELETE /api/users/2`: 204, empty body.
+- Every body carries `support` and `_meta` blocks of reqres marketing copy. The tests
+  don't check them.
+
+**About the config**
+- Before this round, every spec ran on all three browsers, and each browser project
+  depended on the saucedemo `setup` sign-in. The API spec ran 3× and paid for a login
+  it never used.
+
+### What was produced and fixed
+- `specs/api/users.md`: the plan, with six scenarios, one per call. GET by id and POST
+  are `@smoke`; the rest are `@regression`. PUT and PATCH stay separate tests because
+  PATCH also checks that `name` is absent.
+- `tests/api/users.spec.ts`: six tests using the `request` fixture.
+  - Imports `test`/`expect` from `@playwright/test`, not `./fixtures`.
+  - Sets `baseURL: 'https://reqres.in'` with `test.use`.
+  - Checks the status code, then the contract fields: `toMatchObject` for echoed
+    fields, type checks for `id`, ISO-8601 format for the timestamps, and an empty
+    body for DELETE.
+- `playwright.config.ts`:
+  - New `api` project: `testMatch: /api[\/].*\.spec\.ts/`, no device, no
+    dependencies.
+  - `chromium`, `firefox` and `webkit` now have `testIgnore: /api[\/]/`.
+  - The pattern matches `/` and `\`, so it works on Windows and Linux.
+- `PROJECT.md`:
+  - Added "Run the API tests: `npx playwright test --project=api`".
+  - Added an Auth exemption for `tests/api/`: no `storageState`, imports from
+    `@playwright/test`, sets its own `baseURL`, runs in the `api` project.
+    `tests/api/users.spec.ts` is the example to copy.
+  - The old "two exceptions are the only ones" line now says they are the only UI
+    exceptions.
+
+### Verification
+- Playwright version check: installed 1.64.0 matches `.claude/agents-playwright-version`.
+- The spec was written directly, not through the generator agent, which finds
+  selectors by driving a browser. An API spec has no selectors.
+- Before the config change: 19 passed on all three browsers (setup plus 6 tests × 3).
+- After the config change:
+  - `npx playwright test --list` shows 109 tests. The 6 users tests appear only under
+    `[api]`; chromium, firefox and webkit list 34 UI tests each; setup lists 1.
+  - `npx playwright test --project=api`: 6 passed in 1.9 seconds, and setup did not run.
+- Final run, `npx playwright test --project=api`: **6 passed in 972 ms**, no retries,
+  no flaky tests.
+- The full UI suite was not re-run. The config change only adds `testIgnore` for
+  `tests/api/` to the browser projects, and `--list` confirms they keep their 34 tests.
+
+### Still open
+- The expected statuses and fields are what reqres returns today; there is no
+  contract to confirm them.
+- The suite depends on a third-party service. It fails if reqres is down, starts
+  requiring an API key (then add `x-api-key` via `extraHTTPHeaders` from `.env`), or
+  changes its responses. `test-structure.md` says to test behaviour your app owns;
+  this suite was asked for explicitly.
+- Not planned, by decision: the list endpoint (`GET /api/users?page=2`) and
+  invalid-payload POSTs (the mock accepts any body).
+- **convention-check** has not been run on `tests/api/users.spec.ts`.
+- The spec is a draft: nothing is committed, it has not been through PR review, and
+  there is no CI.
+
+## 2026-10-15 — Users API: convention check and reqres rate limit
+
+`convention-check` on `tests/api/users.spec.ts`.
+
+- **Result:** clean. Nothing must be fixed and nothing should be fixed. The locator,
+  page-object and web-first-wait rules don't apply to an API spec. The
+  `@playwright/test` import and missing `storageState` are covered by the `tests/api/`
+  exemption in `PROJECT.md`.
+- **Three style suggestions:**
+  1. Move `baseURL` from the spec's `test.use` into the `api` project. **Applied:** the
+     `api` project now sets `use: { baseURL: 'https://reqres.in' }`. The spec's
+     `test.use` line is gone, and its header comment says the project sets the base
+     URL. The `PROJECT.md` exemption now says API specs use relative paths and the
+     `api` project supplies `baseURL`. (The Users API entry above still says the spec
+     sets its own `baseURL`; that was true when it was written.)
+  2. Merge the two `id` checks in the POST test. **Applied:**
+     `expect(body.id).toEqual(expect.stringMatching(/\S/))`.
+  3. Add the response body as the message on status checks, so a failure shows what
+     came back. **Skipped by decision.**
+- **Already known, not a finding:** the conventions say to test behaviour your own app
+  owns, and reqres is a third party. The suite was asked for explicitly.
+
+### reqres rate limit
+- The first rerun after the fixes failed with **HTTP 429 Too Many Requests**: 3
+  passed; on a retry-free rerun, 4 failed with 429.
+- reqres caps anonymous use at **40 requests a day per IP**, resetting at midnight UTC.
+  The free `reqres-free-v1` API key doesn't raise the cap. The 429 body says a free
+  reqres account gives a higher limit and a personal key.
+- A full run uses 6 requests. With the old global retry setting, a failing run could
+  use up to 12 locally. So the suite can only run a few times a day from one machine,
+  and CI would hit the cap.
+- **Fixed:** the `api` project now has `retries: 0`, with a comment saying why. The
+  browser projects keep the global setting (1 locally, 2 on CI).
+
+### Verification
+- The tests that passed on the rate-limited run used relative paths, so the
+  project-level `baseURL` was applied. Without it they would have hit saucedemo.
+- After the `retries: 0` change: `npx playwright test --list` shows 6 tests in the
+  `api` project and 109 in total, unchanged.
+- **2026-10-16, after the limit reset:** `npx playwright test --project=api`: **6
+  passed in 1.2 seconds**, first try. This confirms the merged `id` check live.
+
+### Still open
+- The 40-request daily cap. The real fix is a reqres account with its own API key in
+  `.env`, sent through the `api` project's `extraHTTPHeaders`. That needs the user to
+  sign up.
+- Nothing is committed. A convention check is a heuristic audit, not a test pass; the
+  spec is still a draft awaiting PR review, and there is no CI.

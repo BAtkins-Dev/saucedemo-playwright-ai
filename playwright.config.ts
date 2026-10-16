@@ -16,8 +16,19 @@ export default defineConfig({
   projects: [
     // Signs in once per run and saves the state to auth/ (see tests/auth.setup.ts).
     { name: 'setup', testMatch: /.*\.setup\.ts/, use: { ...devices['Desktop Chrome'] } },
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'] },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, dependencies: ['setup'] },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] }, dependencies: ['setup'] },
+    // Browser projects run the UI specs only; tests/api/ runs once in the api project below.
+    { name: 'chromium', testIgnore: /api[\\/]/, use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'] },
+    { name: 'firefox', testIgnore: /api[\\/]/, use: { ...devices['Desktop Firefox'] }, dependencies: ['setup'] },
+    { name: 'webkit', testIgnore: /api[\\/]/, use: { ...devices['Desktop Safari'] }, dependencies: ['setup'] },
+    // Request-only: no device, no setup dependency. API specs use the `request` fixture, so
+    // they never launch a browser or need the saucedemo sign-in. baseURL points at reqres.
+    // No retries: reqres caps anonymous use at 40 requests/day per IP, and a retry would
+    // spend more of that on a failure (often the 429 itself) instead of reporting it.
+    {
+      name: 'api',
+      testMatch: /api[\\/].*\.spec\.ts/,
+      retries: 0,
+      use: { baseURL: 'https://reqres.in' },
+    },
   ],
 });

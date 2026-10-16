@@ -11,8 +11,13 @@ Filled in by the **`onboard`** skill on 2026-10-09. Edit by hand as the project 
   `tests/login.spec.ts` and `tests/seed.spec.ts`**, which start signed out and log in
   through the form at `/` because login is what they exercise.
   - **All new specs must start from the saved `storageState`.** The two exceptions above
-    are the only ones; a new spec does not log in through the form, and `plan-tests` /
+    are the only UI ones (API specs are covered below); a new UI spec does not log in through the form, and `plan-tests` /
     `generate-tests` should plan and generate it that way without being asked.
+  - **Exempt: API specs under `tests/api/`.** They call a separate API (reqres.in) through
+    the `request` fixture, with no browser page, so they take no `storageState`, import
+    `test`/`expect` from `@playwright/test` instead of `./fixtures`, and use relative
+    paths like `/api/users/2`. They run in the `api` project, which sets
+    `baseURL: 'https://reqres.in'` and has no `setup` dependency. `tests/api/users.spec.ts` is the example to copy.
   - A spec opts in at the top with `test.use({ storageState: STANDARD_USER_STATE })`
     (exported from `tests/fixtures/index.ts`) and opens its starting page directly, e.g.
     `inventoryPage.open()`. It never types credentials. `tests/cart.spec.ts` is the
@@ -39,6 +44,8 @@ Filled in by the **`onboard`** skill on 2026-10-09. Edit by hand as the project 
 - **Run all:** `npx playwright test`
 - **Run one file:** `npx playwright test tests/<feature>.spec.ts`
 - **Run one browser:** `npx playwright test --project=chromium`
+- **Run the API tests:** `npx playwright test --project=api` — runs `tests/api/` once,
+  with no browser and no `setup` sign-in. The browser projects skip `tests/api/`.
 - **Run a tag:** `npx playwright test --grep @smoke`
 - **Headed / UI mode:** `npx playwright test --ui`
 - **Open a failure trace:** `npx playwright show-trace`
